@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #060a10;
+      --card: #0d1420;
+      --border: rgba(255,255,255,0.07);
+      --green: #00e57a;
+      --red: #ff4d6d;
+      --amber: #ffc83d;
+      --text: #e8edf5;
+      --muted: #4a5568;
+      --glow-green: rgba(0, 229, 122, 0.15);
+      --glow-red: rgba(255, 77, 109, 0.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Ambient grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* Ambient glow blobs */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.18;
+      pointer-events: none;
+      animation: drift 12s ease-in-out infinite alternate;
+    }
+    .blob-1 { width: 400px; height: 400px; background: #00e57a; top: -100px; right: -80px; animation-delay: 0s; }
+    .blob-2 { width: 320px; height: 320px; background: #ff4d6d; bottom: -80px; left: -60px; animation-delay: -6s; }
+
+    @keyframes drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(30px, 20px) scale(1.08); }
+    }
+
+    /* Card */
+    .card {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      width: 420px;
+      padding: 36px 36px 32px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 32px 80px rgba(0,0,0,0.6);
+      animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Tag */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green);
+      background: rgba(0,229,122,0.08);
+      border: 1px solid rgba(0,229,122,0.2);
+      padding: 5px 10px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+    .tag::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1.15;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 30px;
+      font-weight: 400;
+    }
+
+    /* Inputs row */
+    .inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 10px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 11px 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    .field input:focus {
+      border-color: rgba(0,229,122,0.4);
+      background: rgba(0,229,122,0.04);
+      box-shadow: 0 0 0 3px rgba(0,229,122,0.08);
+    }
+    .field input::placeholder { color: #2a3545; }
+    .field input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+    /* Target row */
+    .target-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .target-row label {
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .target-options {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .target-btn {
+      padding: 4px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .target-btn.active {
+      background: rgba(0,229,122,0.12);
+      border-color: rgba(0,229,122,0.35);
+      color: var(--green);
+    }
+    .target-btn:hover:not(.active) {
+      border-color: rgba(255,255,255,0.15);
+      color: var(--text);
+    }
+
+    /* Button */
+    button.calc-btn {
+      width: 100%;
+      padding: 13px;
+      border-radius: 11px;
+      border: none;
+      background: var(--green);
+      color: #060a10;
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+    button.calc-btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%);
+    }
+    button.calc-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 30px rgba(0,229,122,0.35);
+      filter: brightness(1.05);
+    }
+    button.calc-btn:active { transform: translateY(0); }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 24px 0;
+      display: none;
+    }
+
+    /* Result */
+    .result { display: none; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Arc meter */
+    .meter-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 22px;
+    }
+    .arc-svg { overflow: visible; }
+
+    .arc-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 8; stroke-linecap: round; }
+    .arc-fill  { fill: none; stroke-width: 8; stroke-linecap: round;
+                 stroke-dasharray: 220; stroke-dashoffset: 220;
+                 transition: stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1), stroke 0.4s; }
+
+    .pct-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 28px;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+    .pct-sub {
+      font-size: 10px;
+      text-anchor: middle;
+      fill: var(--muted);
+      font-family: 'Syne', sans-serif;
+      letter-spacing: 0.1em;
+    }
+
+    /* Status banner */
+    .status-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+    .status-banner.safe  { background: var(--glow-green); border-color: rgba(0,229,122,0.25); color: var(--green); }
+    .status-banner.warn  { background: rgba(255,200,61,0.1); border-color: rgba(255,200,61,0.25); color: var(--amber); }
+    .status-banner.danger{ background: var(--glow-red); border-color: rgba(255,77,109,0.25); color: var(--red); }
+    .status-icon { font-size: 16px; }
+
+    /* Stats grid */
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .stat-label {
+      font-size: 10px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-family: 'Space Mono', monospace;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red   { color: var(--red); }
+    .stat-value.amber { color: var(--amber); }
+    .stat-note {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* Error */
+    .error-msg {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--red);
+      background: rgba(255,77,109,0.08);
+      border: 1px solid rgba(255,77,109,0.2);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-top: 12px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="card">
+  <div class="tag">Attendance Tracker</div>
+  <h1>Know Where<br>You Stand</h1>
+  <p class="subtitle">Calculate your attendance & plan ahead.</p>
+
+  <div class="inputs">
+    <div class="field">
+      <label>Total Classes</label>
+      <input type="number" id="total" placeholder="e.g. 80" min="1">
+    </div>
+    <div class="field">
+      <label>Attended</label>
+      <input type="number" id="attended" placeholder="e.g. 60" min="0">
+    </div>
+  </div>
+
+  <div class="target-row">
+    <label>Target %</label>
+    <div class="target-options" id="targetOptions">
+      <button class="target-btn" data-val="75" onclick="setTarget(this)">75%</button>
+      <button class="target-btn active" data-val="75" onclick="setTarget(this)">75%</button>
+      <button class="target-btn" data-val="80" onclick="setTarget(this)">80%</button>
+      <button class="target-btn" data-val="85" onclick="setTarget(this)">85%</button>
+      <button class="target-btn" data-val="90" onclick="setTarget(this)">90%</button>
+    </div>
+  </div>
+
+  <button class="calc-btn" onclick="calculate()">Calculate Attendance →</button>
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div class="divider" id="divider"></div>
+
+  <div class="result" id="result">
+    <div class="meter-wrap">
+      <svg class="arc-svg" width="160" height="100" viewBox="0 0 160 100">
+        <path class="arc-track" d="M 20 90 A 60 60 0 0 1 140 90"/>
+        <path class="arc-fill" id="arcFill" d="M 20 90 A 60 60 0 0 1 140 90"/>
+        <text class="pct-label" id="pctLabel" x="80" y="82" fill="white">—</text>
+        <text class="pct-sub" x="80" y="97">ATTENDANCE</text>
+      </svg>
+    </div>
+
+    <div class="status-banner" id="statusBanner">
+      <span class="status-icon" id="statusIcon"></span>
+      <span id="statusText"></span>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Classes Attended</div>
+        <div class="stat-value" id="statAttended">—</div>
+        <div class="stat-note">out of <span id="statTotal">—</span> total</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label" id="actionLabel">—</div>
+        <div class="stat-value" id="actionValue">—</div>
+        <div class="stat-note" id="actionNote">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let targetPct = 75;
+
+  // Fix: remove duplicate button
+  document.addEventListener('DOMContentLoaded', () => {
+    const opts = document.getElementById('targetOptions');
+    const btns = opts.querySelectorAll('.target-btn');
+    // Remove the duplicate first button (was a copy-paste artifact)
+    btns[0].remove();
+    setTarget(opts.querySelector('.target-btn.active'));
+  });
+
+  function setTarget(btn) {
+    document.querySelectorAll('.target-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    targetPct = parseFloat(btn.dataset.val);
+  }
+
+  function calculate() {
+    const T = parseInt(document.getElementById('total').value);
+    const A = parseInt(document.getElementById('attended').value);
+    const err = document.getElementById('errorMsg');
+    const result = document.getElementById('result');
+    const divider = document.getElementById('divider');
+
+    err.style.display = 'none';
+
+    if (!T || isNaN(A) || T <= 0 || A < 0) {
+      err.textContent = '⚠ Please enter valid class numbers.';
+      err.style.display = 'block';
+      result.style.display = 'none';
+      divider.style.display = 'none';
+      return;
+    }
+    if (A > T) {
+      err.textContent = '⚠ Attended classes can\'t exceed total classes.';
+      err.style.display = 'block';
+      result.style.display = 'none';
+      divider.style.display = 'none';
+      return;
+    }
+
+    const pct = (A / T) * 100;
+    const tgt = targetPct;
+
+    // Show result
+    divider.style.display = 'block';
+    result.style.display = 'block';
+    // Re-trigger animation
+    result.style.animation = 'none';
+    result.offsetHeight;
+    result.style.animation = '';
+
+    // Arc
+    const arcFill = document.getElementById('arcFill');
+    const maxDash = 220;
+    const offset = maxDash - Math.min(pct / 100, 1) * maxDash;
+    let arcColor = pct >= tgt ? '#00e57a' : pct >= tgt - 10 ? '#ffc83d' : '#ff4d6d';
+    arcFill.style.stroke = arcColor;
+    arcFill.style.strokeDashoffset = maxDash; // reset
+    setTimeout(() => { arcFill.style.strokeDashoffset = offset; }, 30);
+
+    // Pct label
+    document.getElementById('pctLabel').textContent = pct.toFixed(1) + '%';
+    document.getElementById('pctLabel').setAttribute('fill', arcColor);
+
+    // Status banner
+    const banner = document.getElementById('statusBanner');
+    const icon = document.getElementById('statusIcon');
+    const text = document.getElementById('statusText');
+    banner.className = 'status-banner';
+
+    if (pct >= tgt) {
+      banner.classList.add('safe');
+      icon.textContent = '✓';
+      text.textContent = `You're above the ${tgt}% threshold — you're good!`;
+    } else if (pct >= tgt - 10) {
+      banner.classList.add('warn');
+      icon.textContent = '⚠';
+      text.textContent = `You're close to the ${tgt}% limit — stay cautious.`;
+    } else {
+      banner.classList.add('danger');
+      icon.textContent = '✕';
+      text.textContent = `Below ${tgt}% — attendance action needed.`;
+    }
+
+    // Stats
+    document.getElementById('statAttended').textContent = A;
+    document.getElementById('statTotal').textContent = T;
+
+    if (pct < tgt) {
+      // Classes needed: solve (A+x)/( T+x) >= tgt/100
+      const x = Math.ceil((tgt * T - 100 * A) / (100 - tgt));
+      document.getElementById('actionLabel').textContent = 'Must Attend';
+      const av = document.getElementById('actionValue');
+      av.textContent = x + (x === 1 ? ' class' : ' classes');
+      av.className = 'stat-value red';
+      document.getElementById('actionNote').textContent = `to reach ${tgt}%`;
+    } else {
+      // Max bunkable: (A) / (T+b) >= tgt/100  →  b = floor(A*100/tgt - T)
+      const b = Math.floor((A * 100 / tgt) - T);
+      document.getElementById('actionLabel').textContent = 'Can Bunk';
+      const av = document.getElementById('actionValue');
+      av.textContent = b + (b === 1 ? ' class' : ' classes');
+      av.className = 'stat-value green';
+      document.getElementById('actionNote').textContent = `and still stay at ${tgt}%`;
+    }
+  }
+
+  // Enter key support
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') calculate();
+  });
+</script>
+</body>
+</html>
